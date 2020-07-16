@@ -1,0 +1,13 @@
+---
+- hosts: all
+  vars:
+    ansistrano_deploy_to: "/var/www/pms"
+    ansistrano_version_dir: "releases" # Releases folder name
+    ansistrano_current_dir: "current" # Softlink name. You should rarely changed it.
+    ansistrano_remove_rolled_back: yes # Remove rolled back release?
+    ansistrano_allow_anonymous_stats: yes
+    ansistrano_after_symlink_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/after_symlink_shared.yml"
+  roles:
+    - ansistrano.rollback
+
+

@@ -1,0 +1,501 @@
+- hosts: all
+  become: yes
+
+  tasks:
+  - name: Backup localtime
+    command: mv /etc/localtime /etc/localtime.back
+
+  - name: Backup clock
+    command: mv /etc/sysconfig/clock /etc/sysconfig/clock.back
+
+  - name: Copy zoneinfo
+    command: cp -p /usr/share/zoneinfo/Japan /etc/localtime
+
+  - name: Copy root.bashrc(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/root.bashrc dest=/root/.bashrc
+
+  - name: Change clock UTC to JST(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/clock dest=/etc/sysconfig/clock
+
+  - name: Add repo remi
+    yum:
+      name: http://rpms.famillecollet.com/enterprise/remi-release-6.rpm
+      state: latest
+
+  - name: Add repo mysql-utilities
+    yum:
+      name: http://dev.mysql.com/get/mysql-community-release-el6-5.noarch.rpm
+
+  - name: Add repo zabbix-agent
+    yum:
+      name: http://repo.zabbix.com/zabbix/3.4/rhel/6/x86_64/zabbix-release-3.4-1.el6.noarch.rpm
+
+  - name: Installing Java8
+    yum:
+      name: java-1.8.0-openjdk
+      state: present
+
+  - name: Correct java version selected
+    alternatives:
+      name: java
+      path: /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java
+      link: /usr/bin/java
+
+  - name: Installing Zabbix-agent
+    yum:
+      name: zabbix-agent
+      state: present
+
+  - name: Creating /usr/local/cloudwatch directory
+    file: path=/usr/local/cloudwatch state=directory owner=root group=root mode=644
+
+  - name: Download CloudWatchMonitoringScritps
+    get_url: url=http://ec2-downloads.s3.amazonaws.com/cloudwatch-samples/CloudWatchMonitoringScripts-v1.1.0.zip dest=/usr/local/cloudwatch force=true
+
+  - name: Unzip CloudWatchMonitoringScripts.zip
+    shell: "cd /usr/local/cloudwatch;unzip /usr/local/cloudwatch/CloudWatchMonitoringScripts-v1.1.0.zip"
+
+  - name: Remove CloudWatchMonitoringScripts.zip
+    file: path=/usr/local/cloudwatch/CloudWatchMonitoringScripts-v1.1.0.zip state=absent
+
+  - name: Installing packages for cloudwatchmonitoring
+    yum:
+       name:
+         - perl-Switch
+         - perl-Sys-Syslog
+         - perl-URI
+         - perl-IO-Compress
+         - perl-libwww-perl
+         - perl-LWP-Protocol-https
+       state: present
+
+  - name: Creating /var/log/cloudwatch directory
+    file: path=/var/log/cloudwatch state=directory owner=root group=root mode=644
+
+  - name: Copy /usr/local/cloudwatch/aws-scrips-mon/awscreds.conf(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/awscreds.conf.pro dest=/usr/local/cloudwatch/aws-scripts-mon/awscreds.conf
+
+  - name: "Register cloudwatchmon to cron"
+    cron:
+      name: "Send Data to CloudWatch(1)"
+      minute: "*/5"
+      hour: "*"
+      day: "*"
+      month: "*"
+      weekday: "*"
+      job: "/usr/local/cloudwatch/aws-scripts-mon/mon-put-instance-data.pl --mem-util --mem-used --mem-avail --swap-util --disk-space-util --disk-path=/ --from-cron >> /var/log/cloudwatch/linux-error.log"
+
+  - name: Copy /usr/local/cloudwatch/http_status_check.sh(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/http_status_check.sh dest=/usr/local/cloudwatch/
+
+  - name: Copy /usr/local/cloudwatch/custom_metrics.sh(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/custom_metrics.sh.pro dest=/usr/local/cloudwatch/custom_metrics.sh
+
+  - name: Chmod /usr/local/cloudwatch/http_status_check.sh
+    file: path=/usr/local/cloudwatch/http_status_check.sh state=file owner=root group=root mode=755
+
+  - name: Chmod /usr/local/cloudwatch/custom_metrics.sh
+    file: path=/usr/local/cloudwatch/custom_metrics.sh state=file owner=root group=root mode=755
+
+  - name: "Register custom_metrics to cron"
+    cron:
+      name: "Send Data to CloudWatch(2)"
+      minute: "*/5"
+      hour: "*"
+      day: "*"
+      month: "*"
+      weekday: "*"
+      job: "/usr/local/cloudwatch/custom_metrics.sh >> /var/log/cloudwatch/custom_metrics.log"
+
+  - name: Installing Git
+    yum:
+      name: git
+      state: present
+
+  - name: Installing DevTool Packages
+    yum:
+       name:
+         - gcc
+         - make
+         - openssl
+         - openssl-devel
+         - readline-devel
+         - gcc-c++
+         - zlib-devel
+         - sqlite
+         - sqlite-devel
+         - libffi-devel
+         - libsmbclient
+       state: present
+
+  - name: Installing Samba-Client
+    yum: name=samba-client state=present
+
+  - name: Installing MySQL
+    yum:
+      name:
+        - mysql
+        - mysql-devel
+        - mysql-utilities
+      state: present
+
+  - name: Installing PHP
+    yum:
+      name:
+        - php71
+        - php71-mbstring
+        - php71-mysqlnd
+        - php71-intl
+        - php71-pdo
+        - php71-gd
+        - php71-xml
+      state: present
+      enablerepo: remi
+
+  - name: Downloading Composer
+    get_url: url=https://getcomposer.org/installer dest=./ force=true
+
+  - name: Installing Composer
+    command: php installer
+
+  - name: Moving Composer
+    command: mv composer.phar /usr/local/bin/composer
+
+  - name: Remove Composer-Installer
+    file: path=./installer state=absent
+
+  - name: Installing Apache2.4
+    yum: name=httpd24 state=installed
+
+  - name: Installing WAF-packages
+    yum:
+      name:
+        - mod24_security
+        - mod_security_crs
+        - mlogc
+      state: present
+
+  - name: Backup /etc/hosts
+    command: mv /etc/hosts /etc/hosts.back
+
+  - name: Backup /etc/sysconfig/network
+    command: mv /etc/sysconfig/network /etc/sysconfig/network.back
+
+  - name: Backup /etc/sysconfig/httpd
+    command: mv /etc/sysconfig/httpd /etc/sysconfig/httpd.back
+
+  - name: Backup /etc/httpd/conf/httpd.conf
+    command: mv /etc/httpd/conf/httpd.conf /etc/httpd/conf/httpd.conf.back
+
+  - name: Backup modsecurity_localrules.conf
+    command: mv /etc/httpd/modsecurity.d/local_rules/modsecurity_localrules.conf /root/modsecurity_localrules.conf.back
+
+  - name: Backup mod_security.conf
+    command: mv /etc/httpd/conf.d/mod_security.conf /root/mod_security.conf.back
+
+  - name: Backup /etc/zabbix/zabbix_agentd.conf
+    command: mv /etc/zabbix/zabbix_agentd.conf /etc/zabbix/zabbix_agentd.conf.back
+
+  - name: Backup mlogc.conf
+    command: mv /etc/mlogc.conf /etc/mlogc.conf.back
+
+  - name: Copy /etc/hosts(template-edit)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates-edit/hosts dest=/etc/hosts
+
+  - name: Copy /etc/sysconfig/httpd(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/httpd dest=/etc/sysconfig/httpd
+
+  - name: Copy /etc/sysconfig/network(template-edit)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates-edit/network dest=/etc/sysconfig/network
+
+  - name: Copy /etc/zabbix/zabbix_agentd.conf(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/zabbix_agentd.conf dest=/etc/zabbix/zabbix_agentd.conf
+
+  - name: Copy /etc/mlogc.conf(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/mlogc.conf.pro dest=/etc/mlogc.conf
+
+  - name: Clone rbenv from github
+    git: repo=https://github.com/sstephenson/rbenv.git dest=/usr/local/rbenv
+  
+  - name: Clone ruby-plugin from github
+    git: repo=https://github.com/sstephenson/ruby-build.git dest=/usr/local/rbenv/plugins/ruby-build
+
+  - name: Copy rbenv.conf to /tmp
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/rbenv.conf dest=/tmp/rbenv.conf
+
+  - name: Backup /etc/profile
+    command: cp -p /etc/profile /etc/profile.back
+
+  - name: Add /etc/profile ruby-enviroment
+    shell: "cat /tmp/rbenv.conf >> /etc/profile"
+
+  - name: rbenv install (Please wait for about 5minutes)
+    shell: "source /etc/profile;rbenv install -v 2.6.3"
+
+  - name: rbenv rehash
+    shell: "source /etc/profile;rbenv rehash"
+
+  - name: rbenv global
+    shell: "source /etc/profile;rbenv global 2.6.3"
+
+  - name: Installing ruby-devel
+    yum:
+      name: ruby-devel
+      state: installed
+
+  - name: Installing Gem packages(elasticsearch)
+    shell: "source /etc/profile;gem install elasticsearch"
+
+  - name: Installing Gem packages(restforce)
+    shell: "source /etc/profile;gem install restforce"
+
+  - name: Installing Gem packages(mysql2)
+    shell: "source /etc/profile;gem install mysql2"
+
+  - name: Installing Gem packages(net-ssh)
+    shell: "source /etc/profile;gem install net-ssh"
+
+  - name: Temporaly chmod 777 /var/www
+    file: path=/var/www state=touch mode="777"
+
+  - name: Creating doc directory
+    file: path=/vm-share state=directory owner=ec2-user group=ec2-user mode=755
+
+  - name: Downloading logstash
+    get_url: url=https://download.elastic.co/logstash/logstash/packages/centos/logstash-1.5.4-1.noarch.rpm dest=/tmp force=true
+
+  - name: Installing logstash
+    yum:
+      name: /tmp/logstash-1.5.4-1.noarch.rpm
+      state: present
+
+  - name: Remove logstash-rpm package
+    file: path=/tmp/logstash-1.5.4-1.noarch.rpm state=absent
+
+  - name: Backup /etc/init.d/logstash
+    command: mv /etc/init.d/logstash /root/logstash.back
+
+  - name: Copy /etc/init.d/logstash(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/logstash dest=/etc/init.d/
+
+  - name: Chmod 755 /etc/init.d/logstash
+    file: path=/etc/init.d/logstash state=touch mode="755"
+
+  - name: Backup logstash-Gemfile
+    command: mv /opt/logstash/Gemfile /opt/logstash/Gemfile.back
+
+  - name: Copy logstash-Gemfile(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/Gemfile dest=/opt/logstash/
+
+  - name: Chown logstash-Gemfile
+    file: path=/opt/logstash/Gemfile state=touch owner=logstash group=logstash mode="644"
+
+  - name: Installing logstash-plugin(Please wait for about 3minutes)
+    shell: "cd /opt/logstash;sudo -u logstash ./bin/plugin install --no-verify"
+
+  - name: Copy logstash-input.conf(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/input.conf dest=/etc/logstash/conf.d/
+
+  - name: Copy logstash-filter.conf(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/filter.conf dest=/etc/logstash/conf.d/
+
+  - name: Copy logstash-geofilter.conf(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/geofilter.conf dest=/etc/logstash/conf.d/
+
+  - name: Copy logstash-conf(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/output.conf dest=/etc/logstash/conf.d/
+
+- hosts: all
+  become: yes
+
+  tasks:
+  - git:
+      repo: "https://username:password@xxxxxxxxxxxxxx.com/linux-config.git"
+      dest: "/linux-config2"
+      version: "master"
+
+  - git:
+      repo: "https://username:password@xxxxxxxxxxxx.com/product-management-system.git"
+      dest: "/var/www/product-management-system"
+      version: "stg"
+
+  - name: Copy ec2-user.bashrc(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/ec2.bashrc.pro dest=/home/ec2-user/.bashrc
+
+  - name: Create healthcheck file(for 80port)
+    file: path=/var/www/product-management-system/webroot/health.html state=touch mode="644"
+
+  - name: Copy composer.lock(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/composer.lock dest=/var/www/product-management-system/composer.lock
+
+  - name: Creating PSM(tmp,cache,logs,upload) directory
+    file: path=/var/www/product-management-system/{{ item }} state=directory owner=ec2-user group=ec2-user mode=777
+    with_items:
+     - tmp
+     - logs
+     - cache
+     - upload
+
+  - name: Copy&Extract composer modules
+    unarchive:
+       src: /home/ec2-user/ansible/srv-dep/templates/vendor-prd-now.tar.gz
+       dest: /var/www/product-management-system/
+
+  - name: Copy environment.php(template)
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/environments.php.pro dest=/var/www/product-management-system/config/environments.php
+
+  - name: Create /var/www/pms directory
+    file: path=/var/www/pms state=directory owner=ec2-user group=ec2-user mode=755
+
+  - name: Create /var/www/pms/shared directory
+    file: path=/var/www/pms/shared state=directory owner=ec2-user group=ec2-user mode=775
+
+  - name: Copy ansistrano-shared-make.sh
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/ansistrano-shared-make.sh dest=/var/www/pms/shared/
+
+  - name: Chmod ansistrano-shared-make.sh 755
+    file: path=/var/www/pms/shared/ansistrano-shared-make.sh state=touch mode="755"
+
+  - name: Execute ansistrano-shared-make.sh
+    command: sh /var/www/pms/shared/ansistrano-shared-make.sh
+
+  - name: Copy&Extract jenkins-shell
+    unarchive:
+      src: /home/ec2-user/ansible/srv-dep/templates/jenkins-shell.tar.gz
+      dest: /home/ec2-user/
+
+  - name: Copy&Extract tcp_recirect
+    unarchive:
+       src: /home/ec2-user/ansible/srv-dep/templates/tcp_redirect.tar.gz
+       dest: /home/ec2-user/
+
+  - name: Copy&Extract cpcakelog
+    unarchive:
+       src: /home/ec2-user/ansible/srv-dep/templates/cpcakelog.tar.gz
+       dest: /home/ec2-user/
+
+  - name: "Register cpcakelog to cron"
+    cron:
+      name: "Copy cakelog to S3"
+      minute: "55"
+      hour: "23"
+      day: "*"
+      month: "*"
+      weekday: "*"
+      job: "/home/ec2-user/cpcakelog/cpcakelog.sh > /dev/null 2>&1"
+
+  - name: Copy&Extract .aws
+    unarchive:
+       src: /home/ec2-user/ansible/srv-dep/templates/.aws.tar.gz
+       dest: /home/ec2-user/
+
+- hosts: all
+  become: yes
+
+  tasks:
+  - name: "Register PMS-cron(1) to cron"
+    cron:
+      name: "Copy DB Data(LINE) to PMS-DB(1)"
+      minute: "*/15"
+      hour: "*"
+      day: "*"
+      month: "*"
+      weekday: "*"
+      job: "/var/www/pms/current/bin/cake LineCopyUsers copyOriginal > /dev/null 2>&1"
+
+  - name: "Register PMS-cron(2) to cron"
+    cron:
+      name: "Copy DB Data(LINE) to PMS-DB(2)"
+      minute: "*/15"
+      hour: "*"
+      day: "*"
+      month: "*"
+      weekday: "*"
+      job: "/var/www/pms/current/bin/cake LineCopyMessageSessions copyOriginal > /dev/null 2>&1"
+
+  - name: "Register PMS-cron(3) to cron"
+    cron:
+      name: "Copy DB Data(LINE) to PMS-DB(3)"
+      minute: "*/15"
+      hour: "*"
+      day: "*"
+      month: "*"
+      weekday: "*"
+      job: "/var/www/pms/current/bin/cake LineCopyMessageItems copyOriginal > /dev/null 2>&1"
+
+  - name: Link httpd.conf
+    file:
+       src: /linux-config2/httpd/httpd.conf
+       dest: /etc/httpd/conf/httpd.conf
+       state: link
+
+  - name: Link modsecurity_localrules.conf
+    file:
+       src: /linux-config2/httpd/modsecurity_localrules.conf
+       dest: /etc/httpd/modsecurity.d/local_rules/modsecurity_localrules.conf
+       state: link
+
+  - name: Link whitelist_ip.txt
+    file:
+       src: /linux-config2/httpd/whitelist_ip.txt
+       dest: /etc/httpd/modsecurity.d/whitelist_ip.txt
+       state: link
+
+  - name: Link blacklist_ip.txt
+    file:
+       src: /linux-config2/httpd/blacklist_ip.txt
+       dest: /etc/httpd/modsecurity.d/blacklist_ip.txt
+       state: link
+
+  - name: Link serverlist_ip.txt
+    file:
+       src: /linux-config2/httpd/serverlist_ip.txt
+       dest: /etc/httpd/modsecurity.d/serverlist_ip.txt
+       state: link
+
+  - name: Link mod_security.conf
+    file:
+       src: /linux-config2/httpd/mod_security.conf
+       dest: /etc/httpd/conf.d/mod_security.conf
+       state: link
+
+  - name: Copy /etc/init.d/tcpredirect
+    copy: src=/home/ec2-user/ansible/srv-dep/templates/tcpredirect dest=/etc/init.d/
+
+  - name: Chmod tcpredirect 755
+    file: path=/etc/init.d/tcpredirect state=touch mode="755"
+
+  - name: Create healthcheck file(for 8080port)
+    file: path=/var/www/html/health.html state=touch mode="644"
+
+  - name: Restore chmod /var/www 755
+    file: path=/var/www state=touch mode="755"
+
+  - name: Restore chmod /vm-share 755
+    file: path=/vm-share state=touch mode="755"
+
+  - name: Enabled logstash
+    service: name=logstash enabled=yes
+
+  - name: Enabled tcpredirect
+    service: name=tcpredirect enabled=yes
+
+  - name: Enabled zabbix_agent
+    service: name=zabbix-agent enabled=yes
+
+  - name: Enabled httpd
+    service: name=httpd enabled=yes
+
+  - name: Upgrade all packages(yum update)
+    yum:
+      name: '*'
+      state: latest
+
+  - name: Restart EC2
+    shell: sleep 2 && shutdown -r now "Reboot triggered by Ansible"
+    async: 1
+    poll: 0
+    ignore_errors: true
+
+  - name: Please wait about 3minutes for reboot EC2
+    local_action: wait_for host={{ inventory_hostname }} state=started delay=10 timeout=120

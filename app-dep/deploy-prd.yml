@@ -1,0 +1,35 @@
+---
+- hosts: all
+
+  vars:
+    ansistrano_deploy_via: git
+    ansistrano_deploy_to: /var/www/pms
+    ansistrano_shared_files:
+      - index.php
+      - composer.lock
+      - phpunit.xml.dist
+      - README.md
+      - .editorconfig
+      - .gitattributes
+      - .gitignore
+      - .htaccess
+      - .travis.yml
+      - config/environments.php
+      - webroot/health.html
+    ansistrano_shared_paths:
+      - logs
+      - tests
+      - tmp
+      - upload
+      - etc.deprecated
+      - plugins
+    ansistrano_allow_anonymous_stats: no
+    ansistrano_keep_releases: 8
+    ansistrano_git_repo: https://username:password@test.gitlab.com/product-management-system.git
+    ansistrano_git_branch: production
+    ansistrano_after_update_code_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/after_update_code.yml"
+    ansistrano_before_symlink_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/before_symlink_shared.yml"
+    ansistrano_after_symlink_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/after_symlink_shared.yml"
+
+  roles:
+    - ansistrano.deploy

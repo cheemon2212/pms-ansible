@@ -1,0 +1,9 @@
+---
+- name: ANSISTRANO | HOOKS | Create Revision.info
+  shell: "cat /linux-config2/current/REVISION > /linux-config2/current/REVISION.info"
+
+- name: ANSISTRANO | HOOKS | Edit Revision.info
+  shell: "echo -e \"\n\" >> /linux-config2/current/REVISION.info"
+
+- name: ANSISTRANO | HOOKS | Add hostnameinfo to Revision.txt
+  shell: "hostname >> /linux-config2/current/REVISION.info"

@@ -1,0 +1,13 @@
+---
+- name: ANSISTRANO | HOOKS | Reload apache
+  service: name=httpd state=reloaded
+  become: yes
+
+- name: ANSISTRANO | HOOKS | Create Revision.info
+  shell: "cat /var/www/pms/current/REVISION > /var/www/pms/current/REVISION.info"
+
+- name: ANSISTRANO | HOOKS | Edit Revision.info
+  shell: "echo -e \"\n\" >> /var/www/pms/current/REVISION.info"
+
+- name: ANSISTRANO | HOOKS | Add hostnameinfo to Revision.txt
+  shell: "hostname >> /var/www/pms/current/REVISION.info"

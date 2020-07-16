@@ -1,0 +1,90 @@
+- hosts: all
+  become: yes
+
+  tasks:
+  - name: Removing remi-repo
+    yum: name=remi-release-6.9-2.el6.remi.noarch state=absent
+
+  - name: Removing mysql-repo
+    yum: name=mysql-community-release-el6-5.noarch state=absent
+
+  - name: Removing zabbix-repo
+    yum: name=zabbix-release-3.4-1.el6.noarch state=absent
+
+  - name: Removing Composer
+    file: path=/usr/local/bin/composer state=absent
+
+  - name: Removing Composer cache
+    file: path=/home/ec2-user/.composer state=absent
+
+  - name: Removing PHP
+    yum: name={{ item }} state=absent
+    with_items:
+     - php71
+     - php71-mbstring
+     - php71-mysqlnd
+     - php71-intl
+     - php71-pdo
+     - php71-gd
+     - php71-xml
+
+  - name: Removing MySQL
+    yum: name={{ item }} state=absent
+    with_items:
+     - mysql
+     - mysql-devel
+     - mysql-server
+     - mysql-utilities
+
+  - name: Removing Zabbix-agent
+    yum: name=zabbix-agent state=absent
+
+  - name: Remove psm directory
+    file: path=/var/www/product-management-system state=absent
+
+  - name: Remove doc directory
+    file: path=/vm-share state=absent
+
+  - name: Restore /etc/hosts
+    command: mv /etc/hosts.back /etc/hosts
+
+  - name: Restore /etc/sysconfig/clock
+    command: mv /etc/sysconfig/clock.back /etc/sysconfig/clock
+
+  - name: Restore /etc/sysconfig/network
+    command: mv /etc/sysconfig/network.back /etc/sysconfig/network
+
+  - name: Remove /etc/sysconfig/httpd
+    file: path=/etc/sysconfig/httpd state=absent
+
+  - name: Remove /etc/sysconfig/httpd.back
+    file: path=/etc/sysconfig/httpd.back state=absent
+
+  - name: Remove /etc/zabbix directory
+    file: path=/etc/zabbix state=absent
+
+  - name: Stop httpd24
+    service: name=httpd state=stopped enabled=no
+
+  - name: Removing Apache2.4
+    yum: name=httpd24 state=absent
+
+  - name: Removing Apache2.4-tools
+    yum: name=httpd24-tools state=absent
+
+  - name: Remove /etc/httpd directory
+    file: path=/etc/httpd state=absent
+
+  - name: Remove /var/log/httpd directory
+    file: path=/var/log/httpd state=absent
+
+  - name: Removing Gem package
+    gem: name={{ item }} state=absent
+    with_items:
+     - elasticsearch
+     - restforce
+     - mysql2
+
+  - name: Removing ruby-devel
+    yum: name=ruby20-devel state=absent
+

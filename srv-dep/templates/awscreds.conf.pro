@@ -1,0 +1,2 @@
+AWSAccessKeyId=xxxxxxxxxxxxx
+AWSSecretKey=xxxxxxxxxxxxxxxxxxxx

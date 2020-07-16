@@ -1,0 +1,14 @@
+---
+- hosts: all
+
+  vars:
+    ansistrano_deploy_via: git
+    ansistrano_deploy_to: /linux-config2/
+    ansistrano_allow_anonymous_stats: no
+    ansistrano_keep_releases: 5
+    ansistrano_git_repo: https://username:password@xxx.xxx.com/linux-config.git
+    ansistrano_git_branch: master
+    ansistrano_after_symlink_tasks_file: "{{ playbook_dir }}/roles/hooks/tasks/after_symlink_shared.yml"
+
+  roles:
+    - ansistrano.deploy

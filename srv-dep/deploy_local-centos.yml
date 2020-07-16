@@ -1,0 +1,90 @@
+- hosts: all
+  become: yes
+
+  tasks:
+  - name: Add repo remi
+    yum: name=http://rpms.famillecollet.com/enterprise/remi-release-6.rpm state=latest
+
+  - name: Add repo mysql-utilities
+    yum: name=http://dev.mysql.com/get/mysql-community-release-el6-5.noarch.rpm
+
+  - name: Installing Git
+    yum: name=git state=present
+
+  - name: Installing DevTool Packages
+    yum: name={{ item }} state=present
+    with_items:
+     - openssl-devel
+     - readline-devel
+     - gcc-c++
+     - zlib-devel
+     - sqlite-devel
+     - libffi-devel
+
+  - name: Installing MySQL
+    yum: name={{ item }} state=present
+    with_items:
+     - mysql
+     - mysql-devel
+     - mysql-server
+     - mysql-utilities
+
+  - name: Installing PHP
+    yum: name={{ item }} state=present enablerepo=remi-php71
+    with_items:
+     - php
+     - php-mbstring
+     - php-mysqlnd
+     - php-intl
+     - php-pdo
+     - php-gd
+     - php-xml
+
+  - name: Downloading Composer
+    get_url: url=https://getcomposer.org/installer dest=./ force=true
+
+  - name: Installing Composer
+    command: php installer
+
+  - name: Moving Composer
+    command: mv composer.phar /usr/local/bin/composer
+
+  - name: Remove Composer-Installer
+    file: path=./installer state=absent
+
+  - name: Clone rbenv from github
+    git: repo=https://github.com/sstephenson/rbenv.git dest=/usr/local/rbenv
+  
+  - name: Clone ruby-plugin from github
+    git: repo=https://github.com/sstephenson/ruby-build.git dest=/usr/local/rbenv/plugins/ruby-build
+
+  - name: Copy rbenv.conf to /tmp
+    copy: src=/tmp/templates/rbenv.conf dest=/tmp/rbenv.conf
+
+  - name: Backup /etc/profile
+    command: cp -p /etc/profile /etc/profile.back
+
+  - name: Add /etc/profile ruby-enviroment
+    shell: "cat /tmp/rbenv.conf >> /etc/profile"
+
+  - name: rbenv install (Please wait for about 5minutes)
+    shell: "source /etc/profile;rbenv install -v 2.4.2"
+
+  - name: rbenv rehash
+    shell: "source /etc/profile;rbenv rehash"
+
+  - name: rbenv global
+    shell: "source /etc/profile;rbenv global 2.4.2"
+
+  - name: Installing ruby-devel
+    yum: name=ruby-devel state=installed
+
+  - name: Installing Gem packages(elasticsearch)
+    shell: "source /etc/profile;gem install elasticsearch"
+
+  - name: Installing Gem packages(restforce)
+    shell: "source /etc/profile;gem install restforce"
+
+  - name: Installing Gem packages(mysql2)
+    shell: "source /etc/profile;gem install mysql2"
+
